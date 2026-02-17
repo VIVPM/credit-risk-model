@@ -10,18 +10,30 @@ This application predicts the **Probability of Default (PD)** for loan applicant
 
 The project follows a modular 3-tier architecture:
 
-1.  **Data & Training Pipeline (`src/`)**:
-    *   **Data Injection**: Loads raw data from SQL/CSV sources.
-    *   **Preprocessing**: Handles missing values, outliers, and feature scaling/encoding.
-    *   **Feature Engineering**: Creates derived ratios like `Loan-to-Income`, `Delinquency Ratio`.
-    *   **Model Training**: Trains Logistic Regression/XGBoost models with Class Imbalance handling (SMOTE/RandomUnderSampler).
-2.  **Inference Engine (`backend/`)**:
-    *   **Model Serving**: Validates inputs and runs predictions.
-    *   **Scoring Logic**: Converts raw probabilities into industry-standard Credit Scores.
-    *   **API**: FastAPI endpoints for real-time integration.
-3.  **User Interface (`streamlit_app.py`)**:
-    *   **Interactive Dashboard**: Allows loan officers to input applicant details.
-    *   **Batch Processing**: Supports CSV uploads for bulk scoring.
+```mermaid
+graph TD
+    subgraph "Data & Training Pipeline (src/)"
+        A[Raw Data (SQL/CSV)] --> B(Data Ingestion <br> src/data_loader.py)
+        B --> C{Feature Engineering <br> src/feature_engineering.py}
+        C -->|Loan-to-Income, Ratios| D(Preprocessing <br> src/preprocessing.py)
+        D -->|OneHot + MinMax| E[Model Training <br> src/train.py]
+        E -->|SMOTE + Logistic Regression| F[(Artifacts <br> models/model_data.joblib)]
+    end
+
+    subgraph "Inference Engine (backend/)"
+        F --> G(FastAPI Server <br> backend/api.py)
+        G --> H(Prediction Logic <br> backend/predict.py)
+        H -->|Load Model & Scaler| I{Scoring Engine}
+        I -->|Probability -> Score (300-900)| J[JSON Response]
+    end
+
+    subgraph "User Interface"
+        K(Streamlit Dashboard <br> streamlit_app.py) -->|REST API| G
+        L(Batch CSV Upload) -->|Bulk Request| G
+        J --> K
+        J --> L
+    end
+```
 
 ## 📈 Model Performance & Metrics
 

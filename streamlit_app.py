@@ -3,9 +3,9 @@ import pandas as pd
 import sys
 import os
 
-# Add backend to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
-from predict import CreditRiskModel
+# Add backend to path (optional if running from root, but good for local)
+# sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
+from backend.predict import CreditRiskModel
 
 import requests
 
