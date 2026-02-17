@@ -68,11 +68,11 @@ TYPO_CORRECTIONS = {
 TEST_SIZE = 0.25
 RANDOM_STATE = 42
 
-# Best parameters for Logistic Regression (from Optuna tuning)
+# Best parameters for Logistic Regression (from Optuna tuning in notebook cell 93)
 MODEL_PARAMS = {
-    "C": 4.3969817570910426,
+    "C": 3.9547714598670396,
     "solver": "liblinear",
-    "tol": 5.845696897791597e-06,
+    "tol": 0.00045289166921310325,
     "class_weight": None,
     "random_state": RANDOM_STATE,
     "max_iter": 1000,

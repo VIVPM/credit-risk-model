@@ -81,6 +81,17 @@ def main():
     save_joblib(model, model_path)
     print(f"Model saved to {model_path}")
     
+    # Save Model Data (Notebook Compatibility)
+    model_data = {
+        'model': model,
+        'features': preprocessor.feature_names,
+        'scaler': preprocessor.scaler,
+        'cols_to_scale': preprocessor.numeric_cols
+    }
+    model_data_path = MODELS_DIR / "model_data.joblib"
+    save_joblib(model_data, model_data_path)
+    print(f"Model data saved to {model_data_path} (Notebook format compatibility)")
+    
     # 6. Evaluation
     print("\n[6/6] Evaluation...")
     evaluate_model(model, X_test_processed, y_test)

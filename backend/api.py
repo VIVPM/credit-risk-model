@@ -37,11 +37,10 @@ async def lifespan(app: FastAPI):
         print("Loading Credit Risk Model...")
         # We assume models are in ../models relative to this file
         base_dir = Path(__file__).resolve().parent.parent
-        model_path = base_dir / "models" / "logistic_regression_model.joblib"
-        preprocessor_path = base_dir / "models" / "preprocessor.joblib"
+        model_data_path = base_dir / "models" / "model_data.joblib"
         
         crisk_model = CreditRiskModel(
-            model_path=str(model_path)
+            model_path=str(model_data_path)
         )
         print("✅ Model loaded successfully.")
     except Exception as e:

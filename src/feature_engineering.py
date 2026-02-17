@@ -6,6 +6,7 @@ Handles feature creation, selection, and resampling (SMOTETomek).
 import pandas as pd
 import numpy as np
 from imblearn.combine import SMOTETomek
+from imblearn.under_sampling import RandomUnderSampler
 from config import RANDOM_STATE
 
 def create_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -21,30 +22,33 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     
     # 1. Loan to Income Ratio
-    if 'loan_amount' in df.columns and 'income' in df.columns:
-        # Handle potential zero division for income (though unlikely for valid loan apps)
-        df['loan_to_income'] = np.where(
-            df['income'] != 0,
-            (df['loan_amount'] / df['income']).round(2),
-            0
-        )
+    if 'loan_to_income' not in df.columns:
+        if 'loan_amount' in df.columns and 'income' in df.columns:
+            # Handle potential zero division for income (though unlikely for valid loan apps)
+            df['loan_to_income'] = np.where(
+                df['income'] != 0,
+                (df['loan_amount'] / df['income']).round(2),
+                0
+            )
         
     # 2. Delinquency Ratio
-    if 'delinquent_months' in df.columns and 'total_loan_months' in df.columns:
-        df['delinquency_ratio'] = np.where(
-            df['total_loan_months'] != 0,
-            (df['delinquent_months'] * 100 / df['total_loan_months']).round(1),
-            0
-        )
+    if 'delinquency_ratio' not in df.columns:
+        if 'delinquent_months' in df.columns and 'total_loan_months' in df.columns:
+            df['delinquency_ratio'] = np.where(
+                df['total_loan_months'] != 0,
+                (df['delinquent_months'] * 100 / df['total_loan_months']).round(1),
+                0
+            )
 
     # 3. Avg DPD per Delinquency
-    if 'total_dpd' in df.columns and 'delinquent_months' in df.columns:
-        df['avg_dpd_per_delinquency'] = np.where(
-            df['delinquent_months'] != 0,
-            (df['total_dpd'] / df['delinquent_months']).round(1),
-            0
-        )
-        
+    if 'avg_dpd_per_delinquency' not in df.columns:
+        if 'total_dpd' in df.columns and 'delinquent_months' in df.columns:
+            df['avg_dpd_per_delinquency'] = np.where(
+                df['delinquent_months'] != 0,
+                (df['total_dpd'] / df['delinquent_months']).round(1),
+                0
+            )
+            
     return df
 
 def apply_resampling(X: pd.DataFrame, y: pd.Series):

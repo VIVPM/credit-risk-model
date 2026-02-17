@@ -18,7 +18,9 @@ class CreditRiskPreprocessor:
     def __init__(self):
         self.scaler = MinMaxScaler()
         # Using sparse_output=False for easier DataFrame reconstruction
-        self.encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+        # drop='first' to match notebook's pd.get_dummies(drop_first=True) to avoid dummy variable trap
+        # handle_unknown='ignore' is incompatible with drop='first', so we use default 'error'
+        self.encoder = OneHotEncoder(drop='first', sparse_output=False, handle_unknown='error')
         self.numeric_cols = []
         self.categorical_cols = []
         self.feature_names = []
