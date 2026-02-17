@@ -7,21 +7,36 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
 from predict import CreditRiskModel
 
+import requests
+
+# Set API URL from:
+# 1. secrets.toml (for local secure dev) or Streamlit Cloud Secrets
+# 2. Environment Variable (for Render/Docker)
+# 3. None (Local Standalone Mode)
+if "API_URL" in st.secrets:
+    API_URL = st.secrets["API_URL"]
+else:
+    API_URL = os.getenv("API_URL")
+
 st.set_page_config(page_title="Credit Risk Prediction", layout="wide")
 
 st.title("🏦 Credit Risk Assessment Dashboard")
 
-# Initialize Model
+# Initialize Model (Local Mode only)
+# Only load local model if API_URL is NOT set
 @st.cache_resource
 def load_model():
     return CreditRiskModel()
 
-try:
-    model = load_model()
-    st.success("Model loaded successfully!")
-except Exception as e:
-    st.error(f"Failed to load model: {e}")
-    st.stop()
+if not API_URL:
+    try:
+        model = load_model()
+        st.success("Loaded Local Model (Standalone Mode)")
+    except Exception as e:
+        st.error(f"Failed to load model: {e}")
+        st.stop()
+else:
+    st.info("Connected to Remote API Server")
 
 # ====================== TABS ======================
 tab1, tab2 = st.tabs(["📋 Single Prediction", "📁 Batch Prediction"])
@@ -92,7 +107,19 @@ with tab1:
 
         with st.spinner("Analyzing credit risk..."):
             try:
-                result = model.predict(df_input)[0]
+                if API_URL:
+                    # Remote API Call
+                    response = requests.post(f"{API_URL}/predict", json={"data": input_data})
+                    if response.status_code == 200:
+                        result = response.json()["results"][0]
+                    else:
+                        st.error(f"API Error: {response.status_code} - {response.text}")
+                        st.stop()
+                else:
+                    # Local Function Call
+                    df_input = pd.DataFrame(input_data)
+                    result = model.predict(df_input)[0]
+                
                 prediction = result["default_prediction"]
                 probability = result["default_probability"]
                 credit_score = result.get("credit_score", "N/A")
@@ -137,7 +164,17 @@ with tab2:
         if st.button("Predict Credit Risk", key="batch_predict"):
             with st.spinner("Analyzing..."):
                 try:
-                    predictions = model.predict(df)
+                    if API_URL:
+                        # Convert Dataframe to list of dicts for API
+                        payload = {"data": df.to_dict(orient="records")}
+                        response = requests.post(f"{API_URL}/predict", json=payload)
+                        if response.status_code == 200:
+                            predictions = response.json()["results"]
+                        else:
+                            st.error(f"API Error: {response.text}")
+                            st.stop()
+                    else:
+                         predictions = model.predict(df)
 
                     results_df = df.copy()
                     results_df["Default Prediction"] = [p['default_prediction'] for p in predictions]
