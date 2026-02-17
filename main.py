@@ -1,50 +1,91 @@
-import streamlit as st
-from prediction_helper import predict
+"""
+Main pipeline script for Credit Risk Prediction.
+Orchestrates data loading, preprocessing, training, and evaluation.
+"""
 
-st.title("Credit Risk Modeling Application")
+import sys
+from pathlib import Path
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
-row1 = st.columns(3)
-row2 = st.columns(3)
-row3 = st.columns(3)
-row4 = st.columns(3)
+# Add project root to path
+sys.path.append(str(Path(__file__).resolve().parent))
 
-with row1[0]:
-    age = st.number_input('Age',min_value=18,max_value=100,step=1, value=28)
-with row1[1]:
-    income = st.number_input('Income',min_value=0,value=1200000)
-with row1[2]:
-    loan_amount = st.number_input('Loan Amount',min_value=0,value=2560000)
+from config import (
+    DATA_DIR, MODELS_DIR,
+    TARGET_COLUMN, ID_COLUMNS, TEST_SIZE, RANDOM_STATE
+)
+from src.data_loader import DataLoader
+from src.preprocessing import CreditRiskPreprocessor
+from src.feature_engineering import apply_resampling
+from src.train import train_model
+from src.evaluate import evaluate_model
+from src.utils import save_joblib
 
-loan_to_income_ratio = loan_amount / income if income > 0 else 0
-with row2[0]:
-    st.text("Loan to Income Ratio:")
-    st.text(f"{loan_to_income_ratio:.2f}")  # Display as a text field
+def main():
+    print("=== Starting Credit Risk Pipeline ===")
+    
+    # 1. Load Data
+    print("\n[1/6] Loading Data...")
+    loader = DataLoader(data_dir=str(DATA_DIR))
+    df = loader.get_data()
+    print(f"Data loaded: {df.shape}")
+    
+    # 1.5 Create Derived Features
+    print("\n[1.5/6] Creating Derived Features...")
+    from src.feature_engineering import create_features
+    df = create_features(df)
+    
+    # 2. Prepare Data (Drop IDs, Split Target)
+    print("\n[2/6] Preparing Data...")
+    if TARGET_COLUMN not in df.columns:
+        raise ValueError(f"Target column '{TARGET_COLUMN}' not found.")
+        
+    X = df.drop(TARGET_COLUMN, axis=1)
+    y = df[TARGET_COLUMN]
+    
+    # Drop IDs
+    X = X.drop([c for c in ID_COLUMNS if c in X.columns], axis=1)
+    
+    # Split (stratified to preserve class ratio)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
+    )
+    print(f"Train set: {X_train.shape}, Test set: {X_test.shape}")
+    
+    # 3. Preprocessing
+    print("\n[3/6] Preprocessing...")
+    preprocessor = CreditRiskPreprocessor()
+    preprocessor.fit(X_train)
+    
+    X_train_processed = preprocessor.transform(X_train)
+    X_test_processed = preprocessor.transform(X_test)
+    print(f"Processed feature count: {X_train_processed.shape[1]}")
+    
+    # Save Preprocessor
+    preprocessor_path = MODELS_DIR / "preprocessor.joblib"
+    preprocessor.save(preprocessor_path)
+    print(f"Preprocessor saved to {preprocessor_path}")
+    
+    # 4. Feature Engineering (Resampling)
+    print("\n[4/6] Resampling...")
+    # apply_resampling is currently RandomUnderSampler in the file
+    X_train_res, y_train_res = apply_resampling(X_train_processed, y_train)
+    
+    # 5. Training
+    print("\n[5/6] Training Model...")
+    model = train_model(X_train_res, y_train_res)
+    
+    # Save Model
+    model_path = MODELS_DIR / "logistic_regression_model.joblib"
+    save_joblib(model, model_path)
+    print(f"Model saved to {model_path}")
+    
+    # 6. Evaluation
+    print("\n[6/6] Evaluation...")
+    evaluate_model(model, X_test_processed, y_test)
+    
+    print("\n=== Pipeline Complete ===")
 
-# Assign inputs to the remaining controls
-with row2[1]:
-    loan_tenure_months = st.number_input('Loan Tenure (months)', min_value=0, step=1, value=36)
-with row2[2]:
-    avg_dpd_per_delinquency = st.number_input('Avg DPD', min_value=0, value=20)
-
-with row3[0]:
-    delinquency_ratio = st.number_input('Delinquency Ratio', min_value=0, max_value=100, step=1, value=30)
-with row3[1]:
-    credit_utilization_ratio = st.number_input('Credit Utilization Ratio', min_value=0, max_value=100, step=1, value=30)
-with row3[2]:
-    num_open_accounts = st.number_input('Open Loan Accounts', min_value=1, max_value=4, step=1, value=2)
-
-
-with row4[0]:
-    residence_type = st.selectbox('Residence Type', ['Owned', 'Rented', 'Mortgage'])
-with row4[1]:
-    loan_purpose = st.selectbox('Loan Purpose', ['Education', 'Home', 'Auto', 'Personal'])
-with row4[2]:
-    loan_type = st.selectbox('Loan Type', ['Unsecured', 'Secured'])
-
-if st.button('Calculate Risk'):
-    probability, credit_score, rating = predict(age, income, loan_amount, loan_tenure_months, avg_dpd_per_delinquency,
-                                                delinquency_ratio, credit_utilization_ratio, num_open_accounts,
-                                                residence_type, loan_purpose, loan_type)
-    st.write(f"Default Probability: {probability:.2%}")
-    st.write(f"Credit Score: {credit_score}")
-    st.write(f"Rating: {rating}")
+if __name__ == "__main__":
+    main()

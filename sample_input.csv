@@ -1,0 +1,11 @@
+age,income,loan_amount,loan_tenure_months,avg_dpd_per_delinquency,delinquency_ratio,credit_utilization_ratio,number_of_open_accounts,residence_type,loan_purpose,loan_type
+35,600000,500000,36,0,0,30,2,Owned,Personal,Unsecured
+28,450000,1200000,48,5,10,65,4,Rented,Education,Unsecured
+45,1500000,3000000,60,0,0,15,3,Owned,Home,Secured
+52,850000,200000,12,25,40,90,5,Rented,Personal,Unsecured
+30,550000,800000,24,0,0,45,2,Mortgage,Auto,Secured
+60,2000000,5000000,120,0,0,10,4,Owned,Home,Secured
+24,300000,100000,12,15,25,80,1,Rented,Personal,Unsecured
+33,750000,1500000,36,0,5,35,3,Mortgage,Auto,Secured
+40,1200000,2500000,48,10,15,50,4,Owned,Education,Unsecured
+29,400000,600000,24,30,50,95,3,Rented,Personal,Unsecured
