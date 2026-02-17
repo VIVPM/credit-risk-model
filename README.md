@@ -11,7 +11,7 @@ This application predicts the **Probability of Default (PD)** for loan applicant
 The project follows a modular 3-tier architecture:
 
 ```mermaid
-graph TD
+graph LR
     subgraph "Data & Training Pipeline (src/)"
         A["Raw Data (SQL/CSV)"] --> B("Data Ingestion <br> src/data_loader.py")
         B --> C{"Feature Engineering <br> src/feature_engineering.py"}
