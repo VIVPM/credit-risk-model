@@ -31,30 +31,30 @@ The model evaluation focused on maximizing **Recall** for the "Default" class (C
 
 | Class | Precision | Recall | F1-Score | Support |
 |-------|-----------|--------|----------|---------|
-| **Non-Default (0)** | 0.99 | 0.90 | 0.94 | 8553 |
-| **Default (1)** | **0.34** | **0.90** | **0.49** | 1447 |
+| **Non-Default (0)** | 1.00 | 0.92 | 0.95 | 11426 |
+| **Default (1)** | **0.52** | **0.96** | **0.67** | 1074 |
 
-*   **Accuracy**: 90%
-*   **Recall (Default)**: **90%** (Key Metric: We catch 90% of potential defaulters)
+*   **Accuracy**: 92%
+*   **Recall (Default)**: **96%** (Key Metric: We catch 96% of potential defaulters)
 *   **ROC-AUC**: 0.94
 
-*Note: The precision for defaults is lower (34%), implying some false alarms, which is acceptable in credit risk to prioritize safety.*
+*Note: The precision for defaults is 52%, meaning we have some false positives, but this is a strategic trade-off to ensure maximum risk coverage.*
 
 ## 🚀 Automation Pipeline
 
-The training process is fully automated via `src/train.py`:
+The training process is fully automated via `main.py`:
 
 1.  **`src/data_loader.py`**: Merges Customer, Loan, and Bureau datasets.
 2.  **`src/feature_engineering.py`**:
-    *   Calculates `loan_to_income = loan_amount / income`
-    *   Calculates `delinquency_ratio = delinquent_months / total_loan_months`
+    *   Calculates `loan_to_income`, `delinquency_ratio`.
+    *   Aligns feature set with notebook definition.
 3.  **`src/preprocessing.py`**:
-    *   One-Hot Encoding for Categorical variables.
+    *   One-Hot Encoding (`drop='first'`) for Categorical variables.
     *   MinMax Scaling for Numerical variables.
 4.  **`src/train.py`**:
     *   Splits data (Stratified).
-    *   Applies `SMOTETomek` for class balancing.
-    *   Optimizes Hyperparameters (C, Solver).
+    *   Applies `RandomUnderSampler` for class balancing (optimized for Recall).
+    *   Trains Logistic Regression with notebook-tuned hyperparameters.
     *   Saves artifacts to `models/`.
 
 ## 📂 Project Structure
@@ -68,11 +68,15 @@ credit-risk-model/
 │   ├── data_loader.py      # Data Ingestion
 │   ├── preprocessing.py    # Cleaning & Scaling
 │   ├── feature_engineering.py # Feature Creation
-│   └── train.py            # Model Training Script
+│   ├── train.py            # Model Training Script
+│   ├── evaluate.py         # Metrics Calculation
+│   └── utils.py            # Helper Functions
 ├── models/                 # Binary Artifacts
+│   ├── model_data.joblib   # Consolidated Artifact (Notebook Compatible)
 │   ├── logistic_regression_model.joblib
 │   └── preprocessor.joblib
 ├── streamlit_app.py        # Frontend Dashboard
+├── main.py                 # End-to-End Pipeline Orchestrator
 ├── config.py               # Central Configuration
 ├── requirements.txt        # Dependencies
 └── README.md               # Documentation
@@ -91,17 +95,31 @@ credit-risk-model/
     pip install -r requirements.txt
     ```
 
-3.  **Run the Dashboard**:
+3.  **Run the Training Pipeline** (Optional, artifacts are pre-generated):
+    ```bash
+    python main.py
+    ```
+    *This generates the `models/model_data.joblib` artifact used by the app.*
+
+4.  **Run the Dashboard**:
     ```bash
     streamlit run streamlit_app.py
     ```
     Access at `http://localhost:8501`.
 
-4.  **Run the API**:
+5.  **Run the API**:
     ```bash
-    python backend/api.py
+    uvicorn backend.api:app --reload
     ```
-    API documentation available at `http://localhost:8000/docs`.
+    Access docs at `http://localhost:8000/docs`.
+
+## 🔄 Notebook vs. Pipeline Alignment
+
+This project ensures strict parity between the research environment (`credit_risk.ipynb`) and the production pipeline:
+*   **Feature Engineering**: Identical logic for derived ratios.
+*   **Preprocessing**: Same `OneHotEncoder` configuration (`drop='first'`) and scaling.
+*   **Model Parameters**: Exact hyperparameters (`C`, `tol`) transferred from Optuna tuning.
+*   **Artifacts**: The pipeline generates a `model_data.joblib` dictionary that mirrors the notebook's saving structure, ensuring seamless portability.
 
 ## ⚙️ Credit Scoring Logic
 
