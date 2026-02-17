@@ -13,23 +13,23 @@ The project follows a modular 3-tier architecture:
 ```mermaid
 graph TD
     subgraph "Data & Training Pipeline (src/)"
-        A[Raw Data (SQL/CSV)] --> B(Data Ingestion <br> src/data_loader.py)
-        B --> C{Feature Engineering <br> src/feature_engineering.py}
-        C -->|Loan-to-Income, Ratios| D(Preprocessing <br> src/preprocessing.py)
-        D -->|OneHot + MinMax| E[Model Training <br> src/train.py]
-        E -->|SMOTE + Logistic Regression| F[(Artifacts <br> models/model_data.joblib)]
+        A["Raw Data (SQL/CSV)"] --> B("Data Ingestion <br> src/data_loader.py")
+        B --> C{"Feature Engineering <br> src/feature_engineering.py"}
+        C -->|Loan-to-Income, Ratios| D("Preprocessing <br> src/preprocessing.py")
+        D -->|OneHot + MinMax| E["Model Training <br> src/train.py"]
+        E -->|SMOTE + Logistic Regression| F[("Artifacts <br> models/model_data.joblib")]
     end
 
     subgraph "Inference Engine (backend/)"
-        F --> G(FastAPI Server <br> backend/api.py)
-        G --> H(Prediction Logic <br> backend/predict.py)
-        H -->|Load Model & Scaler| I{Scoring Engine}
-        I -->|Probability -> Score (300-900)| J[JSON Response]
+        F --> G("FastAPI Server <br> backend/api.py")
+        G --> H("Prediction Logic <br> backend/predict.py")
+        H -->|Load Model & Scaler| I{"Scoring Engine"}
+        I -->|"Probability -> Score (300-900)"| J["JSON Response"]
     end
 
     subgraph "User Interface"
-        K(Streamlit Dashboard <br> streamlit_app.py) -->|REST API| G
-        L(Batch CSV Upload) -->|Bulk Request| G
+        K("Streamlit Dashboard <br> streamlit_app.py") -->|"REST API"| G
+        L("Batch CSV Upload") -->|"Bulk Request"| G
         J --> K
         J --> L
     end
