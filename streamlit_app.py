@@ -13,10 +13,11 @@ import requests
 # 1. secrets.toml (for local secure dev) or Streamlit Cloud Secrets
 # 2. Environment Variable (for Render/Docker)
 # 3. None (Local Standalone Mode)
+
 if "API_URL" in st.secrets:
     API_URL = st.secrets["API_URL"]
 else:
-    API_URL = os.getenv("API_URL")
+    API_URL = None
 
 st.set_page_config(page_title="Credit Risk Prediction", layout="wide")
 
@@ -109,7 +110,9 @@ with tab1:
             try:
                 if API_URL:
                     # Remote API Call
-                    response = requests.post(f"{API_URL}/predict", json={"data": input_data})
+                    # Convert to list of dicts (records) which API expects
+                    payload = df_input.to_dict(orient="records")
+                    response = requests.post(f"{API_URL}/predict", json={"data": payload})
                     if response.status_code == 200:
                         result = response.json()["results"][0]
                     else:
