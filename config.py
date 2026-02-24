@@ -3,7 +3,9 @@ Configuration file for Credit Risk Prediction project.
 Contains all paths, constants, and settings.
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # =============================================================================
 # PATHS
@@ -78,3 +80,13 @@ MODEL_PARAMS = {
     "max_iter": 1000,
     "n_jobs": 1  # liblinear does not support n_jobs=-1
 }
+
+# =============================================================================
+# HUGGINGFACE HUB INTEGRATION
+# =============================================================================
+load_dotenv(BACKEND_DIR / ".env")
+HF_TOKEN = os.environ.get("HF_TOKEN")
+HF_REPO_ID = os.environ.get("HF_REPO_ID", "your_username/credit-risk-model")
+HF_FILES = [
+    "model_data.joblib"
+]

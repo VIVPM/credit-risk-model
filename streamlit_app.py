@@ -21,7 +21,95 @@ else:
 
 st.set_page_config(page_title="Credit Risk Prediction", layout="wide")
 
+# Inject Custom CSS for Status Cards
+st.markdown("""
+<style>
+.status-running {
+    background-color: #0d47a1;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+.status-completed {
+    background-color: #1b5e20;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+.status-failed {
+    background-color: #b71c1c;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🏦 Credit Risk Assessment Dashboard")
+
+# ---------------------------------------------------------------------------
+# Helper: Check API connection
+# ---------------------------------------------------------------------------
+def check_api():
+    if not API_URL:
+        return False, {}
+    try:
+        r = requests.get(f"{API_URL}/", timeout=15)
+        return r.status_code == 200, r.json()
+    except (requests.ConnectionError, requests.Timeout):
+        return False, {}
+
+def get_model_info():
+    if not API_URL:
+        return None
+    try:
+        r = requests.get(f"{API_URL}/model/info", timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+# ---------------------------------------------------------------------------
+# Sidebar
+# ---------------------------------------------------------------------------
+with st.sidebar:
+    st.markdown("## 🏦 Credit Risk Predictor")
+    st.markdown("---")
+
+    api_ok, root_data = check_api()
+    model_loaded = root_data.get("status") == "active"
+
+    if not API_URL:
+        st.warning("⚠️ Running in Standalone Mode. Remote API is disconnected.")
+    elif api_ok:
+        st.success("✅ API Connected")
+        if model_loaded:
+            info = get_model_info()
+            if info:
+                st.markdown(f"**Model:** `{info.get('model_name', 'Loaded')}`")
+                st.markdown(f"**Features:** `{info.get('num_features', 'Unknown')}`")
+            else:
+                st.markdown("**Model:** `Loaded`")
+        else:
+            st.warning("⚠️ Model not loaded yet — train first")
+    else:
+        st.error("❌ API Offline")
+        st.code("cd backend && uvicorn api:app --reload", language="bash")
+
+    st.markdown("---")
+    st.markdown("### How to use")
+    st.markdown("""
+    1. **Train Model** — upload 3 CSV datasets
+    2. **Single Prediction** — fill form
+    3. **Batch Prediction** — upload combined CSV
+    """)
 
 # Initialize Model (Local Mode only)
 # Only load local model if API_URL is NOT set
@@ -40,10 +128,10 @@ else:
     st.info("Connected to Remote API Server")
 
 # ====================== TABS ======================
-tab1, tab2 = st.tabs(["📋 Single Prediction", "📁 Batch Prediction"])
+tab_train, tab_single, tab_batch = st.tabs(["⚙️ Train Model", "📋 Single Prediction", "📁 Batch Prediction"])
 
 # ====================== SINGLE PREDICTION ======================
-with tab1:
+with tab_single:
     st.subheader("Enter Customer Details")
     
     with st.form("single_prediction_form"):
@@ -155,7 +243,7 @@ with tab1:
                 st.error(f"Prediction failed: {e}")
 
 # ====================== BATCH PREDICTION ======================
-with tab2:
+with tab_batch:
     st.subheader("Upload Customer Data for Batch Prediction")
     uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
@@ -208,3 +296,142 @@ with tab2:
 
                 except Exception as e:
                     st.error(f"Prediction failed: {e}")
+
+# ====================== TRAIN MODEL ======================
+with tab_train:
+    st.subheader("⚙️ Train Credit Risk Model")
+    st.write("Upload the three required datasets (`customers.csv`, `loans.csv`, and `bureau_data.csv`) to trigger background training and upload the newly trained model to HuggingFace Hub.")
+
+    if not API_URL:
+        st.warning("⚠️ Training is only available when connected to the remote API Server. You are currently in Standalone Mode.")
+    else:
+        uploaded_files = st.file_uploader(
+            "Upload customers.csv, loans.csv, and bureau_data.csv", 
+            type=["csv"], 
+            accept_multiple_files=True
+        )
+        
+        # Initialize state
+        if "training_triggered" not in st.session_state:
+            st.session_state["training_triggered"] = False
+            
+        train_btn = st.button("🚀 Start Training", type="primary", use_container_width=True)
+        
+        if train_btn:
+            if not uploaded_files or len(uploaded_files) < 3:
+                st.error("Please upload all 3 CSV files (customers.csv, loans.csv, bureau_data.csv) before starting training.")
+            else:
+                with st.spinner("Triggering training..."):
+                    try:
+                        files_payload = [
+                            ("files", (f.name, f.getvalue(), "text/csv")) 
+                            for f in uploaded_files
+                        ]
+                        resp = requests.post(f"{API_URL}/train", files=files_payload, timeout=30)
+                        if resp.status_code == 200:
+                            st.session_state["training_triggered"] = True
+                        elif resp.status_code == 409:
+                            st.warning("⚠️ Training already in progress.")
+                            st.session_state["training_triggered"] = True
+                        else:
+                            st.error(f"❌ Failed to start training: {resp.text}")
+                    except Exception as e:
+                        st.error(f"❌ API connection failed: {e}")
+
+        # Status Tracking
+        if st.session_state["training_triggered"]:
+            st.markdown("---")
+            st.markdown("#### 📊 Training Status")
+            
+            # Placeholders for dynamic updates
+            status_ph = st.empty()
+            msg_ph = st.empty()
+            metrics_ph = st.empty()
+            refresh_ph = st.empty()
+            
+            def render_status():
+                try:
+                    r = requests.get(f"{API_URL}/train/status", timeout=10)
+                    if r.status_code != 200:
+                        return None
+                    return r.json()
+                except:
+                    return None
+            
+            s = render_status()
+            
+            if s:
+                status_val = s.get("status", "unknown")
+                msg_val = s.get("message", "")
+                err_val = s.get("error", "")
+                
+                if status_val == "running":
+                    status_ph.markdown(
+                        f'<div class="status-running">🔄 <strong>Training in Progress</strong><br>{msg_val}</div>',
+                        unsafe_allow_html=True
+                    )
+                    
+                    # Step indicators logic
+                    msg_lower = msg_val.lower()
+                    step1 = "✅" if "step 2" in msg_lower or "step 3" in msg_lower or "complete" in msg_lower else ("🔄" if "step 1" in msg_lower else "⏳")
+                    step2 = "✅" if "step 3" in msg_lower or "complete" in msg_lower else ("🔄" if "step 2" in msg_lower else "⏳")
+                    step3 = "✅" if "complete" in msg_lower else ("🔄" if "step 3" in msg_lower else "⏳")
+
+                    msg_ph.markdown(f"""
+                    | Step | Task | Status |
+                    |------|------|--------|
+                    | 1 | Loading Data | {step1} |
+                    | 2 | Preprocessing | {step2} |
+                    | 3 | Training Logistic Regression | {step3} |
+                    """)
+                    
+                elif status_val == "completed":
+                    status_ph.markdown(
+                        f'<div class="status-completed">✅ <strong>Training Completed</strong><br>{msg_val}</div>',
+                        unsafe_allow_html=True
+                    )
+                    msg_ph.markdown("""
+                    | Step | Task | Status |
+                    |------|------|--------|
+                    | 1 | Loading Data | ✅ |
+                    | 2 | Preprocessing | ✅ |
+                    | 3 | Training Logistic Regression | ✅ |
+                    """)
+                    m1, m2, m3 = metrics_ph.columns(3)
+                    
+                    # 1. Best Model
+                    model_name = s.get("model_name")
+                    if not model_name or model_name == "-":
+                        model_name = "Logistic Regression"
+                    m1.metric("🏆 Best Model", model_name)
+                    
+                    # 2. Score
+                    acc = s.get("accuracy")
+                    m2.metric("📈 Accuracy Score", f"{acc:.4f}" if acc else "Not calculated")
+                    
+                    # 3. Features Used
+                    feats = s.get("num_features")
+                    if not feats or feats == "-":
+                        feats = "Wait..."
+                    m3.metric("🔢 Features Used", feats)
+                elif status_val == "failed":
+                    status_ph.markdown(
+                        f'<div class="status-failed">❌ <strong>Training Failed</strong><br>{msg_val}</div>',
+                        unsafe_allow_html=True
+                    )
+                    if err_val:
+                        with st.expander("View Error Details"):
+                            st.code(err_val)
+                elif status_val == "idle":
+                    status_ph.info("💤 **Idle** - No training has been run yet.")
+                
+                # Manual refresh button
+                if status_val == "running":
+                    with refresh_ph.container():
+                        st.write("⏳ Training running in background — click Refresh to check progress.")
+                        if st.button("🔄 Refresh Status"):
+                            st.rerun()
+                elif status_val in ("completed", "failed"):
+                     with refresh_ph.container():
+                        if st.button("🔄 Refresh Status"):
+                            st.rerun()

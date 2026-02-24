@@ -9,7 +9,7 @@ import os
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from config import TYPO_CORRECTIONS, SELECTED_FEATURES
-from src.utils import save_joblib, load_joblib
+from backend.training.utils import save_joblib, load_joblib
 
 class CreditRiskPreprocessor:
     """

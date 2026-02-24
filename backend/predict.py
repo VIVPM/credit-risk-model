@@ -4,11 +4,11 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# Add project root to path to allow imports from src
+# Add project root to path to allow imports from backend.training
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from src.preprocessing import CreditRiskPreprocessor
-from src.feature_engineering import create_features
+from backend.training.preprocessing import CreditRiskPreprocessor
+from backend.training.feature_engineering import create_features
 
 class CreditRiskModel:
     """

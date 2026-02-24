@@ -15,12 +15,12 @@ from config import (
     DATA_DIR, MODELS_DIR,
     TARGET_COLUMN, ID_COLUMNS, TEST_SIZE, RANDOM_STATE
 )
-from src.data_loader import DataLoader
-from src.preprocessing import CreditRiskPreprocessor
-from src.feature_engineering import apply_resampling
-from src.train import train_model
-from src.evaluate import evaluate_model
-from src.utils import save_joblib
+from backend.training.data_loader import DataLoader
+from backend.training.preprocessing import CreditRiskPreprocessor
+from backend.training.feature_engineering import apply_resampling
+from backend.training.train import train_model
+from backend.training.evaluate import evaluate_model
+from backend.training.utils import save_joblib
 
 def main():
     print("=== Starting Credit Risk Pipeline ===")
@@ -33,7 +33,7 @@ def main():
     
     # 1.5 Create Derived Features
     print("\n[1.5/6] Creating Derived Features...")
-    from src.feature_engineering import create_features
+    from backend.training.feature_engineering import create_features
     df = create_features(df)
     
     # 2. Prepare Data (Drop IDs, Split Target)
