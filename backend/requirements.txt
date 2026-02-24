@@ -6,3 +6,5 @@ joblib
 pydantic
 imbalanced-learn
 huggingface_hub
+python-dotenv
+python-multipart
