@@ -96,6 +96,7 @@ with st.sidebar:
 
     api_ok, root_data = check_api()
     model_loaded = root_data.get("status") == "active"
+    versions = []
 
     if not API_URL:
         st.warning("⚠️ Running in Standalone Mode. Remote API is disconnected.")
@@ -203,6 +204,10 @@ with tab_single:
         submitted = st.form_submit_button("🔍 Predict Credit Risk", use_container_width=True)
 
     if submitted:
+        if api_ok and not versions:
+            st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model.")
+            st.stop()
+            
         # Build input DataFrame
         input_data = {
             "age": [age],
@@ -279,6 +284,10 @@ with tab_batch:
         st.dataframe(df.head(), use_container_width=True)
 
         if st.button("Predict Credit Risk", key="batch_predict"):
+            if api_ok and not versions:
+                st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model.")
+                st.stop()
+                
             with st.spinner("Analyzing..."):
                 try:
                     if API_URL:
