@@ -62,10 +62,6 @@ def main():
     X_test_processed = preprocessor.transform(X_test)
     print(f"Processed feature count: {X_train_processed.shape[1]}")
     
-    # Save Preprocessor
-    preprocessor_path = MODELS_DIR / "preprocessor.joblib"
-    preprocessor.save(preprocessor_path)
-    print(f"Preprocessor saved to {preprocessor_path}")
     
     # 4. Feature Engineering (Resampling)
     print("\n[4/6] Resampling...")
@@ -96,7 +92,19 @@ def main():
     print("\n[6/6] Evaluation...")
     evaluate_model(model, X_test_processed, y_test)
     
-    print("\n=== Pipeline Complete ===")
+    from sklearn.metrics import accuracy_score
+    y_pred = model.predict(X_test_processed)
+    acc_score = accuracy_score(y_test, y_pred)
+    
+    # Save metrics to model_comparison.csv
+    metrics_df = pd.DataFrame([{
+        "model_name": "Logistic Regression",
+        "best_score": acc_score
+    }])
+    metrics_path = MODELS_DIR / "model_comparison.csv"
+    metrics_df.to_csv(metrics_path, index=False)
+    print(f"Metrics saved to {metrics_path}")
+    
 
 if __name__ == "__main__":
     main()

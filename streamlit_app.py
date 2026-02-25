@@ -65,11 +65,22 @@ def check_api():
     except (requests.ConnectionError, requests.Timeout):
         return False, {}
 
-def get_model_info():
+def get_model_versions():
+    if not API_URL:
+        return []
+    try:
+        r = requests.get(f"{API_URL}/model/versions", timeout=10)
+        if r.status_code == 200:
+            return r.json().get("versions", [])
+    except Exception:
+        pass
+    return []
+
+def get_model_info(version="main"):
     if not API_URL:
         return None
     try:
-        r = requests.get(f"{API_URL}/model/info", timeout=10)
+        r = requests.get(f"{API_URL}/model/info?version={version}", timeout=10)
         if r.status_code == 200:
             return r.json()
     except Exception:
@@ -88,17 +99,31 @@ with st.sidebar:
 
     if not API_URL:
         st.warning("⚠️ Running in Standalone Mode. Remote API is disconnected.")
+        st.session_state["selected_version"] = "local"
     elif api_ok:
         st.success("✅ API Connected")
-        if model_loaded:
-            info = get_model_info()
-            if info:
-                st.markdown(f"**Model:** `{info.get('model_name', 'Loaded')}`")
-                st.markdown(f"**Features:** `{info.get('num_features', 'Unknown')}`")
-            else:
-                st.markdown("**Model:** `Loaded`")
+        
+        # Version Selection
+        versions = get_model_versions()
+        
+        if not versions:
+             st.warning("⚠️ No model versions found on HF Hub. Train a model first.")
+             st.session_state["selected_version"] = "local"
         else:
-            st.warning("⚠️ Model not loaded yet — train first")
+             selected_version = st.selectbox(
+                 "📂 Select Model Version",
+                 options=reversed(versions), # Show newest first
+                 index=0
+             )
+             st.session_state["selected_version"] = selected_version
+
+             info = get_model_info(selected_version)
+             if info:
+                 st.markdown(f"**Model:** `{info.get('model_name', 'Loaded')}`")
+                 st.markdown(f"**Features:** `{info.get('num_features', 'Unknown')}`")
+                 st.markdown(f"**Version:** `{selected_version}`")
+             else:
+                 st.warning("⚠️ Model not loaded yet — train first")
     else:
         st.error("❌ API Offline")
         st.code("cd backend && uvicorn api:app --reload", language="bash")
@@ -200,7 +225,8 @@ with tab_single:
                     # Remote API Call
                     # Convert to list of dicts (records) which API expects
                     payload = df_input.to_dict(orient="records")
-                    response = requests.post(f"{API_URL}/predict", json={"data": payload})
+                    version = st.session_state.get("selected_version", "main")
+                    response = requests.post(f"{API_URL}/predict?version={version}", json={"data": payload})
                     if response.status_code == 200:
                         result = response.json()["results"][0]
                     else:
@@ -258,7 +284,8 @@ with tab_batch:
                     if API_URL:
                         # Convert Dataframe to list of dicts for API
                         payload = {"data": df.to_dict(orient="records")}
-                        response = requests.post(f"{API_URL}/predict", json=payload)
+                        version = st.session_state.get("selected_version", "main")
+                        response = requests.post(f"{API_URL}/predict?version={version}", json=payload)
                         if response.status_code == 200:
                             predictions = response.json()["results"]
                         else:
@@ -339,99 +366,115 @@ with tab_train:
                         st.error(f"❌ API connection failed: {e}")
 
         # Status Tracking
-        if st.session_state["training_triggered"]:
-            st.markdown("---")
-            st.markdown("#### 📊 Training Status")
-            
-            # Placeholders for dynamic updates
-            status_ph = st.empty()
-            msg_ph = st.empty()
-            metrics_ph = st.empty()
-            refresh_ph = st.empty()
-            
-            def render_status():
-                try:
-                    r = requests.get(f"{API_URL}/train/status", timeout=10)
-                    if r.status_code != 200:
-                        return None
-                    return r.json()
-                except:
-                    return None
-            
-            s = render_status()
-            
-            if s:
-                status_val = s.get("status", "unknown")
-                msg_val = s.get("message", "")
-                err_val = s.get("error", "")
-                
-                if status_val == "running":
-                    status_ph.markdown(
-                        f'<div class="status-running">🔄 <strong>Training in Progress</strong><br>{msg_val}</div>',
-                        unsafe_allow_html=True
-                    )
-                    
-                    # Step indicators logic
-                    msg_lower = msg_val.lower()
-                    step1 = "✅" if "step 2" in msg_lower or "step 3" in msg_lower or "complete" in msg_lower else ("🔄" if "step 1" in msg_lower else "⏳")
-                    step2 = "✅" if "step 3" in msg_lower or "complete" in msg_lower else ("🔄" if "step 2" in msg_lower else "⏳")
-                    step3 = "✅" if "complete" in msg_lower else ("🔄" if "step 3" in msg_lower else "⏳")
+        st.markdown("---")
+        
+        # Placeholders for dynamic updates
+        status_ph = st.empty()
+        msg_ph = st.empty()
+        metrics_ph = st.empty()
+        refresh_ph = st.empty()
+        
+        s = {}
+        status_val = "idle"
+        
+        # First, check if there's an active or recently completed training in this session
+        if st.session_state.get("training_triggered", False):
+            try:
+                r = requests.get(f"{API_URL}/train/status", timeout=10)
+                if r.status_code == 200:
+                    s = r.json()
+                    status_val = s.get("status", "idle")
+            except Exception:
+                pass
 
-                    msg_ph.markdown(f"""
-                    | Step | Task | Status |
-                    |------|------|--------|
-                    | 1 | Loading Data | {step1} |
-                    | 2 | Preprocessing | {step2} |
-                    | 3 | Training Logistic Regression | {step3} |
-                    """)
-                    
-                elif status_val == "completed":
-                    status_ph.markdown(
-                        f'<div class="status-completed">✅ <strong>Training Completed</strong><br>{msg_val}</div>',
-                        unsafe_allow_html=True
-                    )
-                    msg_ph.markdown("""
-                    | Step | Task | Status |
-                    |------|------|--------|
-                    | 1 | Loading Data | ✅ |
-                    | 2 | Preprocessing | ✅ |
-                    | 3 | Training Logistic Regression | ✅ |
-                    """)
-                    m1, m2, m3 = metrics_ph.columns(3)
-                    
-                    # 1. Best Model
-                    model_name = s.get("model_name")
-                    if not model_name or model_name == "-":
-                        model_name = "Logistic Regression"
-                    m1.metric("🏆 Best Model", model_name)
-                    
-                    # 2. Score
-                    acc = s.get("accuracy")
-                    m2.metric("📈 Accuracy Score", f"{acc:.4f}" if acc else "Not calculated")
-                    
-                    # 3. Features Used
-                    feats = s.get("num_features")
-                    if not feats or feats == "-":
-                        feats = "Wait..."
-                    m3.metric("🔢 Features Used", feats)
-                elif status_val == "failed":
-                    status_ph.markdown(
-                        f'<div class="status-failed">❌ <strong>Training Failed</strong><br>{msg_val}</div>',
-                        unsafe_allow_html=True
-                    )
-                    if err_val:
-                        with st.expander("View Error Details"):
-                            st.code(err_val)
-                elif status_val == "idle":
-                    status_ph.info("💤 **Idle** - No training has been run yet.")
+        # If no active training is going on, check if a model version is loaded/selected
+        if status_val == "idle":
+            selected = st.session_state.get("selected_version")
+            if selected and selected != "local":
+                info = get_model_info(selected)
+                if info:
+                    status_val = "loaded_from_hf"
+                    s = {
+                        "message": f"Viewing model details for {selected} from Hugging Face Hub.",
+                        "model_name": info.get("model_name", "Logistic Regression"),
+                        "accuracy": info.get("accuracy_score"),
+                        "num_features": info.get("num_features")
+                    }
+        
+        if s and status_val != "idle":
+            msg_val = s.get("message", "")
+            err_val = s.get("error", "")
+            
+            if status_val == "running":
+                status_ph.markdown(
+                    f'<div class="status-running">🔄 <strong>Training in Progress</strong><br>{msg_val}</div>',
+                    unsafe_allow_html=True
+                )
                 
-                # Manual refresh button
-                if status_val == "running":
-                    with refresh_ph.container():
-                        st.write("⏳ Training running in background — click Refresh to check progress.")
-                        if st.button("🔄 Refresh Status"):
-                            st.rerun()
-                elif status_val in ("completed", "failed"):
-                     with refresh_ph.container():
-                        if st.button("🔄 Refresh Status"):
-                            st.rerun()
+                # Step indicators logic
+                msg_lower = msg_val.lower()
+                step1 = "✅" if "step 2" in msg_lower or "step 3" in msg_lower or "complete" in msg_lower else ("🔄" if "step 1" in msg_lower else "⏳")
+                step2 = "✅" if "step 3" in msg_lower or "complete" in msg_lower else ("🔄" if "step 2" in msg_lower else "⏳")
+                step3 = "✅" if "complete" in msg_lower else ("🔄" if "step 3" in msg_lower else "⏳")
+
+                msg_ph.markdown(f"""
+                | Step | Task | Status |
+                |------|------|--------|
+                | 1 | Loading Data | {step1} |
+                | 2 | Preprocessing | {step2} |
+                | 3 | Training Logistic Regression | {step3} |
+                """)
+                
+            elif status_val in ("completed", "loaded_from_hf"):
+                title = "Training Completed!" if status_val == "completed" else "Model Loaded"
+                status_ph.markdown(
+                    f'<div class="status-completed">✅ <strong>{title}</strong><br>{msg_val}</div>',
+                    unsafe_allow_html=True
+                )
+                msg_ph.markdown("""
+                #### 📊 Training Status
+                | Step | Task | Status |
+                |------|------|--------|
+                | 1 | Loading Data | ✅ |
+                | 2 | Preprocessing | ✅ |
+                | 3 | Training Logistic Regression | ✅ |
+                """)
+                m1, m2, m3 = metrics_ph.columns(3)
+                
+                # 1. Best Model
+                model_name = s.get("model_name")
+                if not model_name or model_name == "-":
+                    model_name = "Logistic Regression"
+                m1.metric("🏆 Best Model", model_name)
+                
+                # 2. Score
+                acc = s.get("accuracy")
+                m2.metric("📈 Accuracy Score", f"{acc:.4f}" if acc else "Not calculated")
+                
+                # 3. Features Used
+                feats = s.get("num_features")
+                if not feats or feats == "-":
+                    feats = "Wait..."
+                m3.metric("🔢 Features Used", feats)
+            elif status_val == "failed":
+                status_ph.markdown(
+                    f'<div class="status-failed">❌ <strong>Training Failed</strong><br>{msg_val}</div>',
+                    unsafe_allow_html=True
+                )
+                if err_val:
+                    with st.expander("View Error Details"):
+                        st.code(err_val)
+                        
+            # Manual refresh button
+            if status_val == "running":
+                with refresh_ph.container():
+                    st.write("⏳ Training running in background — click Refresh to check progress.")
+                    if st.button("🔄 Refresh Status"):
+                        st.rerun()
+            elif status_val in ("completed", "failed", "loaded_from_hf"):
+                 with refresh_ph.container():
+                    if st.button("🔄 Refresh Status"):
+                        st.rerun()
+                        
+        else:
+            status_ph.info("💤 **Idle** - No models trained yet. Upload 3 datasets and hit Start Training.")

@@ -29,6 +29,7 @@ from config import HF_TOKEN, HF_REPO_ID, HF_FILES, MODELS_DIR
 # Global State
 # ---------------------------------------------------------------------------
 crisk_model = None
+current_version = None
 
 # Track training status in memory
 training_status = {
@@ -47,31 +48,60 @@ def _hf_enabled() -> bool:
     """Returns True if HF Hub is configured."""
     return bool(HF_TOKEN) and HF_TOKEN != "your_hf_token_here"
 
-def _upload_to_hf() -> bool:
-    """Upload model artifacts from MODELS_DIR to HuggingFace Hub."""
+def _get_hf_versions():
+    """Fetch all available version tags from the HF repo."""
+    if not _hf_enabled():
+        return []
+    try:
+        api = HfApi(token=HF_TOKEN)
+        refs = api.list_repo_refs(repo_id=HF_REPO_ID)
+        return [tag.name for tag in refs.tags if tag.name.startswith("v")]
+    except Exception as e:
+        print(f"⚠️ Could not fetch versions: {e}")
+        return []
+
+def _upload_to_hf(accuracy_score=0.0) -> bool:
+    """Upload model artifacts to HF Hub and tag new version."""
     if not _hf_enabled():
         print("⚠️  HF Hub not configured — skipping upload.")
         return False
     try:
         api = HfApi(token=HF_TOKEN)
         api.create_repo(repo_id=HF_REPO_ID, exist_ok=True, private=False)
-        for fname in HF_FILES:
-            fpath = MODELS_DIR / fname
-            if fpath.exists():
-                api.upload_file(
-                    path_or_fileobj=str(fpath),
-                    path_in_repo=fname,
-                    repo_id=HF_REPO_ID,
-                    token=HF_TOKEN,
-                )
-                print(f"☁️  Uploaded {fname} → {HF_REPO_ID}")
+        
+        # Determine next version
+        versions = _get_hf_versions()
+        if versions:
+            latest_version_num = float(versions[-1].replace("v", ""))
+            new_version = f"v{latest_version_num + 1.0}"
+        else:
+            new_version = "v1.0"
+
+        # Upload files
+        api.upload_folder(
+            folder_path=str(MODELS_DIR),
+            repo_id=HF_REPO_ID,
+            commit_message=f"Automated Training - {new_version}",
+            token=HF_TOKEN,
+            allow_patterns=["*.joblib", "*.txt", "*.json", "*.csv"]
+        )
+        print(f"☁️  Uploaded artifacts -> {HF_REPO_ID}")
+
+        # Tag the release
+        api.create_tag(
+            repo_id=HF_REPO_ID,
+            tag=new_version,
+            tag_message=f"Automated Model Training. Accuracy: {accuracy_score:.4f}",
+            token=HF_TOKEN
+        )
+        print(f"🏷️  Created new tag: {new_version}")
         return True
     except Exception as e:
         print(f"❌ HF upload failed: {e}")
         return False
 
-def _download_from_hf() -> bool:
-    """Download model artifacts from HuggingFace Hub into MODELS_DIR."""
+def _download_from_hf(version: str = "main") -> bool:
+    """Download model artifacts from HuggingFace Hub for a specific version tag."""
     if not _hf_enabled():
         return False
         
@@ -90,26 +120,43 @@ def _download_from_hf() -> bool:
             hf_hub_download(
                 repo_id=HF_REPO_ID,
                 filename=fname,
+                revision=version,
                 token=HF_TOKEN,
                 local_dir=str(MODELS_DIR),
                 local_dir_use_symlinks=False, 
             )
-            print(f"⬇️  Downloaded {fname} from {HF_REPO_ID}")
+            print(f"⬇️  Downloaded {fname} from {HF_REPO_ID} (rev: {version})")
         except Exception as e:
             if "404" in str(e):
-                raise FileNotFoundError(f"File '{fname}' missing in repo '{HF_REPO_ID}'. Please train a model.")
+                raise FileNotFoundError(f"File '{fname}' missing in repo '{HF_REPO_ID}' at {version}. Please train a model.")
             raise e
     return True
 
-def _load_model() -> None:
+def _load_model(version: str = "main", download: bool = True) -> None:
     """Download from HF (if enabled) and load into global state."""
-    global crisk_model
+    global crisk_model, current_version
     
-    if _hf_enabled():
-        print(f"🔄 Pulling model from HuggingFace Hub ({HF_REPO_ID})...")
-        _download_from_hf()
+    # If the user asks for a specific version and we already have it loaded, skip
+    if version != "main" and current_version == version and crisk_model is not None:
+        return
+
+    if _hf_enabled() and download:
+        # If no specific version requested, fetch the latest version tag
+        if version == "main":
+            tags = _get_hf_versions()
+            if tags:
+                version = tags[-1]
+                
+        print(f"🔄 Pulling model from HuggingFace Hub ({HF_REPO_ID} @ {version})...")
+        _download_from_hf(version=version)
+            
+    elif not download:
+        print("ℹ️  Download skipped by request — loading from local files directly.")
+        if version == "main": # default tag
+            version = "local" # tag it as local since it hasn't synced
     else:
         print("ℹ️  HF Hub not configured — loading from local files.")
+        version = "local"
         
     base_dir = Path(__file__).resolve().parent.parent
     model_data_path = base_dir / "models" / "model_data.joblib"
@@ -118,7 +165,8 @@ def _load_model() -> None:
          raise FileNotFoundError("Model file not found. Please train first.")
          
     crisk_model = CreditRiskModel(model_path=str(model_data_path))
-    print("✅ Model loaded successfully.")
+    current_version = version
+    print(f"✅ Model loaded successfully (v: {version}).")
 
 # ---------------------------------------------------------------------------
 # Lifespan (Startup/Shutdown)
@@ -263,6 +311,13 @@ def _run_training_pipeline() -> None:
         model_data_path = base_dir / "models" / "model_data.joblib"
         save_joblib(model_data, model_data_path)
         
+        # Save model_comparison.csv metrics
+        metrics_df = pd.DataFrame([{
+            "model_name": "Logistic Regression",
+            "best_score": acc_score
+        }])
+        metrics_df.to_csv(base_dir / "models" / "model_comparison.csv", index=False)
+        
         with training_lock:
             training_status["model_name"] = "Logistic Regression"
             training_status["num_features"] = len(preprocessor.feature_names)
@@ -271,11 +326,11 @@ def _run_training_pipeline() -> None:
         # 5. Upload to HuggingFace
         with training_lock:
             training_status["message"] = "Uploading model to HuggingFace Hub..."
-        hf_uploaded = _upload_to_hf()
+        hf_uploaded = _upload_to_hf(accuracy_score=acc_score)
         hf_note = f" | Uploaded to HF Hub ({HF_REPO_ID})" if hf_uploaded else ""
         
-        # 6. Reload model in API
-        _load_model()
+        # 6. Reload model in API (will load from local files since we just trained)
+        _load_model(download=False)
         
         with training_lock:
             training_status["status"] = "completed"
@@ -298,22 +353,54 @@ def _run_training_pipeline() -> None:
 def home():
     return {
         "message": "Credit Risk Prediction API is running.",
-        "status": "active" if crisk_model else "model_loading_failed"
+        "status": "active" if crisk_model else "model_loading_failed",
+        "version": current_version,
     }
 
+@app.get("/model/versions")
+async def get_model_versions():
+    """Get a list of all available model versions from Hugging Face Hub."""
+    versions = _get_hf_versions()
+    return {"versions": versions or ["local"]}
+
 @app.get("/model/info")
-def get_model_info():
+def get_model_info(version: str = "main"):
+    """Get information about the deployed model."""
+    if version != current_version:
+        try:
+             _load_model(version)
+        except Exception as e:
+             raise HTTPException(status_code=404, detail=f"Failed to load version '{version}': {str(e)}")
+             
     if not crisk_model:
         raise HTTPException(status_code=404, detail="Model not loaded")
+        
+    best_cv_score = None
+    comparison_file = MODELS_DIR / "model_comparison.csv"
+    if comparison_file.exists():
+        try:
+            df_comp = pd.read_csv(comparison_file)
+            if "best_score" in df_comp.columns:
+                best_cv_score = float(df_comp["best_score"].max())
+        except Exception:
+            pass
+            
     return {
         "model_name": "Logistic Regression",
-        "num_features": len(crisk_model.features) if hasattr(crisk_model, 'features') and crisk_model.features is not None else "Unknown"
+        "num_features": len(crisk_model.features) if hasattr(crisk_model, 'features') and crisk_model.features is not None else "Unknown",
+        "accuracy_score": best_cv_score
     }
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict_credit_risk(request: PredictionRequest):
+def predict_credit_risk(request: PredictionRequest, version: str = "main"):
+    if version != current_version:
+        try:
+            _load_model(version)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to load version '{version}': {str(e)}")
+        
     if not crisk_model:
-        raise HTTPException(status_code=500, detail="Model not loaded.")
+        raise HTTPException(status_code=400, detail="Model not loaded. Please train the model first.")
     
     try:
         # Convert list of dicts to DataFrame

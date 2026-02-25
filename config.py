@@ -88,5 +88,6 @@ load_dotenv(BACKEND_DIR / ".env")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 HF_REPO_ID = os.environ.get("HF_REPO_ID", "your_username/credit-risk-model")
 HF_FILES = [
-    "model_data.joblib"
+    "model_data.joblib",
+    "model_comparison.csv"
 ]
