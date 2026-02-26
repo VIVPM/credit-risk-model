@@ -448,6 +448,9 @@ with tab_train:
                 | 2 | Preprocessing | ✅ |
                 | 3 | Training Logistic Regression | ✅ |
                 """)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
                 m1, m2, m3 = metrics_ph.columns(3)
                 
                 # 1. Best Model
