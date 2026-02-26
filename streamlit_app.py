@@ -380,6 +380,7 @@ with tab_train:
         # Placeholders for dynamic updates
         status_ph = st.empty()
         msg_ph = st.empty()
+        spacing_ph = st.empty()
         metrics_ph = st.empty()
         refresh_ph = st.empty()
         
@@ -449,7 +450,7 @@ with tab_train:
                 | 3 | Training Logistic Regression | ✅ |
                 """)
                 
-                st.markdown("<br>", unsafe_allow_html=True)
+                spacing_ph.markdown("<br>", unsafe_allow_html=True)
                 
                 m1, m2, m3 = metrics_ph.columns(3)
                 
