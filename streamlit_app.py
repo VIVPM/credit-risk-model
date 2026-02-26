@@ -9,15 +9,13 @@ from backend.predict import CreditRiskModel
 
 import requests
 
-# Set API URL from:
-# 1. secrets.toml (for local secure dev) or Streamlit Cloud Secrets
-# 2. Environment Variable (for Render/Docker)
-# 3. None (Local Standalone Mode)
-
+# ---------------------------------------------------------------------------
+# Config — API URL from .streamlit/secrets.toml
+# ---------------------------------------------------------------------------
 if "API_URL" in st.secrets:
-    API_URL = st.secrets["API_URL"]
+    API_URL = st.secrets["API_URL"].rstrip("/")
 else:
-    API_URL = None
+    API_URL = "http://localhost:8000"  # standalone mode — falls back to local CreditRiskModel
 
 st.set_page_config(page_title="Credit Risk Prediction", layout="wide")
 
