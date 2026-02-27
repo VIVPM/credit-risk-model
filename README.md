@@ -94,36 +94,91 @@ credit-risk-model/
 └── README.md               # Documentation
 ```
 
-## 💻 Installation & Usage
+## 💻 Installation & Setup
 
-1.  **Clone the repository**:
+1. **Clone the repository**:
     ```bash
     git clone <repository-url>
     cd credit-risk-model
     ```
 
-2.  **Install Dependencies**:
+2. **Create a virtual environment**:
+    ```bash
+    python -m venv venv
+
+    # Windows
+    venv\Scripts\activate
+
+    # Linux / Mac
+    source venv/bin/activate
+    ```
+
+3. **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Run the Training Pipeline** (Optional, artifacts are pre-generated):
+4. **Place dataset files** in `dataset/`:
+    - `customers.csv`
+    - `loans.csv`
+    - `bureau.csv`
+
+### Hugging Face Hub (model versioning)
+
+1. Create an account at [huggingface.co](https://huggingface.co)
+2. Go to **Settings → Access Tokens** and create a write-access token
+3. Create a model repository (e.g. `YourUsername/credit-risk-model`)
+4. Create `backend/.env`:
+
+    ```
+    HF_TOKEN=hf_your_token_here
+    HF_REPO_ID=YourUsername/credit-risk-model
+    ```
+
+The API uploads a versioned tag after each training run and downloads the latest on startup.
+
+### Modal (optional GPU / cloud training)
+
+The pipeline currently uses Logistic Regression (CPU only), but the Modal setup is ready if you switch to a GPU model later:
+
+```bash
+pip install modal
+
+# Authenticate
+python -m modal setup
+
+# Create secret for the container to access HF Hub
+python -m modal secret create credit-risk-secrets \
+    HF_TOKEN=hf_your_token \
+    HF_REPO_ID=YourUsername/credit-risk-model
+```
+
+Add Modal tokens to `backend/.env` (from `~/.modal.toml` after setup):
+
+```
+MODAL_TOKEN_ID=ak-...
+MODAL_TOKEN_SECRET=as-...
+```
+
+## 🚀 Usage
+
+1. **Run the Training Pipeline** (optional — artifacts are pre-generated):
     ```bash
     python main.py
     ```
-    *This generates the `models/model_data.joblib` artifact used by the app.*
 
-4.  **Run the Dashboard**:
+2. **Run the Dashboard**:
     ```bash
     streamlit run streamlit_app.py
     ```
     Access at `http://localhost:8501`.
 
-5.  **Run the API**:
+3. **Run the API**:
     ```bash
     uvicorn backend.api:app --reload
     ```
-    Access docs at `http://localhost:8000/docs`.
+    Docs at `http://localhost:8000/docs`.
+
 
 ## 🔄 Notebook vs. Pipeline Alignment
 
