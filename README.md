@@ -54,7 +54,7 @@ The model evaluation focused on maximizing **Recall** for the "Default" class (C
 
 ## 🚀 Automation Pipeline
 
-The training process is fully automated via `main.py`:
+The training process is fully automated via the API endpoint `POST /train` which orchestrates:
 
 1.  **`src/data_loader.py`**: Merges Customer, Loan, and Bureau datasets.
 2.  **`src/feature_engineering.py`**:
@@ -88,7 +88,6 @@ credit-risk-model/
 │   ├── logistic_regression_model.joblib
 │   └── preprocessor.joblib
 ├── streamlit_app.py        # Frontend Dashboard
-├── main.py                 # End-to-End Pipeline Orchestrator
 ├── config.py               # Central Configuration
 ├── requirements.txt        # Dependencies
 └── README.md               # Documentation
@@ -162,12 +161,7 @@ MODAL_TOKEN_SECRET=as-...
 
 ## 🚀 Usage
 
-1. **Run the Training Pipeline** (optional — artifacts are pre-generated):
-    ```bash
-    python main.py
-    ```
-
-2. **Run the Dashboard**:
+1. **Run the Dashboard**:
     ```bash
     streamlit run streamlit_app.py
     ```
