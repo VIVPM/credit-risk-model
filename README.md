@@ -1,6 +1,6 @@
 # Credit Risk Modeling & MLOps Pipeline
 
-A production-grade machine learning project for assessing credit risk, featuring a modular training pipeline, FastAPI backend, and Streamlit dashboard.
+Credit risk modeling project predicting Probability of Default and Credit Score using Logistic Regression tuned with Optuna on merged customer, loan, and bureau datasets. Includes a modular training pipeline, FastAPI inference engine, and Streamlit dashboard.
 
 ## 📊 Project Overview
 
@@ -173,16 +173,9 @@ MODAL_TOKEN_SECRET=as-...
     ```
     Access at `http://localhost:8501`.
 
-3. **Run the API**:
-    ```bash
-    uvicorn backend.api:app --reload
-    ```
-    Docs at `http://localhost:8000/docs`.
-
-
 ## 🔄 Notebook vs. Pipeline Alignment
 
-This project ensures strict parity between the research environment (`credit_risk.ipynb`) and the production pipeline:
+This project ensures strict parity between the research environment (`credit_risk.ipynb`) and the automated pipeline:
 *   **Feature Engineering**: Identical logic for derived ratios.
 *   **Preprocessing**: Same `OneHotEncoder` configuration (`drop='first'`) and scaling.
 *   **Model Parameters**: Exact hyperparameters (`C`, `tol`) transferred from Optuna tuning.
