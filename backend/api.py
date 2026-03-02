@@ -306,7 +306,8 @@ def _run_training_pipeline() -> None:
             'model': model,
             'features': preprocessor.feature_names,
             'scaler': preprocessor.scaler,
-            'cols_to_scale': preprocessor.numeric_cols
+            'cols_to_scale': preprocessor.numeric_cols,
+            'encoder': preprocessor.encoder
         }
         model_data_path = base_dir / "models" / "model_data.joblib"
         save_joblib(model_data, model_data_path)

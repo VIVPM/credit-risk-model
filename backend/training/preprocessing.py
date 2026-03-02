@@ -13,7 +13,7 @@ import os
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from config import TYPO_CORRECTIONS, SELECTED_FEATURES
-from backend.training.utils import save_joblib, load_joblib
+from sklearn.impute import SimpleImputer
 
 
 class CreditRiskPreprocessor:
@@ -21,7 +21,7 @@ class CreditRiskPreprocessor:
         self.scaler  = MinMaxScaler()
         # drop='first' avoids the dummy variable trap, matching the notebook.
         # sparse_output=False so we can rebuild a proper DataFrame from the output.
-        self.encoder = OneHotEncoder(drop='first', sparse_output=False, handle_unknown='error')
+        self.encoder = OneHotEncoder(drop=None, sparse_output=False, handle_unknown='ignore')
         self.numeric_cols     = []
         self.categorical_cols = []
         self.feature_names    = []
@@ -81,14 +81,7 @@ class CreditRiskPreprocessor:
         self.feature_names = X_final.columns.tolist()
         return X_final
 
-    def save(self, filepath):
-        """Persist the fitted preprocessor so inference uses the same scalings."""
-        save_joblib(self, filepath)
 
-    @staticmethod
-    def load(filepath):
-        """Load a previously saved preprocessor."""
-        return load_joblib(filepath)
 
 
 if __name__ == "__main__":
@@ -108,7 +101,6 @@ if __name__ == "__main__":
         print(f"Processed shape: {X_processed.shape}")
         print(X_processed.head())
 
-        preprocessor.save("models/preprocessor.joblib")
-        print("Preprocessor saved.")
+
     except Exception as e:
         print(f"Test failed: {e}")

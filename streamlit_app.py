@@ -19,6 +19,16 @@ else:
 
 st.set_page_config(page_title="Credit Risk Prediction", layout="wide")
 
+if "is_training" not in st.session_state:
+    st.session_state["is_training"] = False
+if "is_predicting" not in st.session_state:
+    st.session_state["is_predicting"] = False
+if "is_batching" not in st.session_state:
+    st.session_state["is_batching"] = False
+
+def is_busy():
+    return st.session_state["is_training"] or st.session_state["is_predicting"] or st.session_state["is_batching"]
+
 # Inject Custom CSS for Status Cards
 st.markdown("""
 <style>
@@ -199,9 +209,10 @@ with tab_single:
         with col11:
             loan_type = st.selectbox("Loan Type", ["Unsecured", "Secured"])
 
-        submitted = st.form_submit_button("🔍 Predict Credit Risk", use_container_width=True)
+        submitted = st.form_submit_button("🔍 Predict Credit Risk", use_container_width=True, disabled=st.session_state["is_training"] or st.session_state["is_batching"])
 
     if submitted:
+        st.session_state["is_predicting"] = True
         if api_ok and not versions:
             st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model.")
             st.stop()
@@ -270,6 +281,8 @@ with tab_single:
 
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
+            finally:
+                st.session_state["is_predicting"] = False
 
 # ====================== BATCH PREDICTION ======================
 with tab_batch:
@@ -281,7 +294,8 @@ with tab_batch:
         st.write("### Data Preview")
         st.dataframe(df.head(), use_container_width=True)
 
-        if st.button("Predict Credit Risk", key="batch_predict"):
+        if st.button("Predict Credit Risk", key="batch_predict", disabled=st.session_state["is_training"] or st.session_state["is_predicting"]):
+            st.session_state["is_batching"] = True
             if api_ok and not versions:
                 st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model.")
                 st.stop()
@@ -330,6 +344,8 @@ with tab_batch:
 
                 except Exception as e:
                     st.error(f"Prediction failed: {e}")
+                finally:
+                    st.session_state["is_batching"] = False
 
 # ====================== TRAIN MODEL ======================
 with tab_train:
@@ -349,12 +365,13 @@ with tab_train:
         if "training_triggered" not in st.session_state:
             st.session_state["training_triggered"] = False
             
-        train_btn = st.button("🚀 Start Training", type="primary", use_container_width=True)
+        train_btn = st.button("🚀 Start Training", type="primary", use_container_width=True, disabled=st.session_state["is_predicting"] or st.session_state["is_batching"])
         
         if train_btn:
             if not uploaded_files or len(uploaded_files) < 3:
                 st.error("Please upload all 3 CSV files (customers.csv, loans.csv, bureau_data.csv) before starting training.")
             else:
+                st.session_state["is_training"] = True
                 with st.spinner("Triggering training..."):
                     try:
                         files_payload = [
@@ -371,6 +388,7 @@ with tab_train:
                             st.error(f"❌ Failed to start training: {resp.text}")
                     except Exception as e:
                         st.error(f"❌ API connection failed: {e}")
+                st.session_state["is_training"] = False
 
         # Status Tracking
         st.markdown("---")
