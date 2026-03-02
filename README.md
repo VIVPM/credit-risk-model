@@ -12,11 +12,11 @@ The project follows a modular 3-tier architecture:
 
 ```mermaid
 graph LR
-    subgraph "Data & Training Pipeline (src/)"
-        A["Raw Data (SQL/CSV)"] --> B("Data Ingestion <br> src/data_loader.py")
-        B --> C{"Feature Engineering <br> src/feature_engineering.py"}
-        C -->|Loan-to-Income, Ratios| D("Preprocessing <br> src/preprocessing.py")
-        D -->|OneHot + MinMax| E["Model Training <br> src/train.py"]
+    subgraph "Data & Training Pipeline (backend/training/)"
+        A["Raw Data (SQL/CSV)"] --> B("Data Ingestion <br> backend/training/data_loader.py")
+        B --> C{"Feature Engineering <br> backend/training/feature_engineering.py"}
+        C -->|Loan-to-Income, Ratios| D("Preprocessing <br> backend/training/preprocessing.py")
+        D -->|OneHot + MinMax| E["Model Training <br> backend/training/train.py"]
         E -->|SMOTE + Logistic Regression| F[("Artifacts <br> models/model_data.joblib")]
     end
 
@@ -41,10 +41,13 @@ The model evaluation focused on maximizing **Recall** for the "Default" class (C
 
 ### Classification Report (Logistic Regression)
 
-| Class | Precision | Recall | F1-Score | Support |
-|-------|-----------|--------|----------|---------|
+| Metric | Precision | Recall | F1-Score | Support |
+|--------|-----------|--------|----------|---------|
 | **Non-Default (0)** | 1.00 | 0.92 | 0.95 | 11426 |
-| **Default (1)** | **0.52** | **0.96** | **0.67** | 1074 |
+| **Default (1)** | 0.52 | 0.96 | 0.67 | 1074 |
+| **Accuracy** | | | **0.92** | 12500 |
+| **Macro Avg** | 0.76 | 0.94 | 0.81 | 12500 |
+| **Weighted Avg** | 0.95 | 0.92 | 0.93 | 12500 |
 
 *   **Accuracy**: 92%
 *   **Recall (Default)**: **96%** (Key Metric: We catch 96% of potential defaulters)
@@ -56,16 +59,16 @@ The model evaluation focused on maximizing **Recall** for the "Default" class (C
 
 The training process is fully automated via the API endpoint `POST /train` which orchestrates:
 
-1.  **`src/data_loader.py`**: Merges Customer, Loan, and Bureau datasets.
-2.  **`src/feature_engineering.py`**:
+1.  **`backend/training/data_loader.py`**: Merges Customer, Loan, and Bureau datasets.
+2.  **`backend/training/feature_engineering.py`**:
     *   Calculates `loan_to_income`, `delinquency_ratio`.
     *   Aligns feature set with notebook definition.
-3.  **`src/preprocessing.py`**:
+3.  **`backend/training/preprocessing.py`**:
     *   One-Hot Encoding (`drop='first'`) for Categorical variables.
     *   MinMax Scaling for Numerical variables.
-4.  **`src/train.py`**:
+4.  **`backend/training/train.py`**:
     *   Splits data (Stratified).
-    *   Applies `RandomUnderSampler` for class balancing (optimized for Recall).
+    *   Applies `SMOTE` (Synthetic Minority Over-sampling Technique) for class balancing.
     *   Trains Logistic Regression with notebook-tuned hyperparameters.
     *   Saves artifacts to `models/`.
 
@@ -75,14 +78,14 @@ The training process is fully automated via the API endpoint `POST /train` which
 credit-risk-model/
 ├── backend/                # Inference Engine
 │   ├── api.py              # FastAPI Server
-│   └── predict.py          # Prediction Logic & Credit Scoring
-├── src/                    # Training Pipeline
-│   ├── data_loader.py      # Data Ingestion
-│   ├── preprocessing.py    # Cleaning & Scaling
-│   ├── feature_engineering.py # Feature Creation
-│   ├── train.py            # Model Training Script
-│   ├── evaluate.py         # Metrics Calculation
-│   └── utils.py            # Helper Functions
+│   ├── predict.py          # Prediction Logic & Credit Scoring
+│   └── training/           # Training Pipeline
+│       ├── data_loader.py      # Data Ingestion
+│       ├── preprocessing.py    # Cleaning & Scaling
+│       ├── feature_engineering.py # Feature Creation
+│       ├── train.py            # Model Training Script
+│       ├── evaluate.py         # Metrics Calculation
+│       └── utils.py            # Helper Functions
 ├── models/                 # Binary Artifacts
 │   ├── model_data.joblib   # Consolidated Artifact (Notebook Compatible)
 │   ├── logistic_regression_model.joblib
