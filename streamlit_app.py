@@ -294,7 +294,7 @@ with tab_batch:
         
         # PyArrow compatibility: convert object/string columns to regular strings for Streamlit rendering
         for col in df_preview.columns:
-            if df_preview[col].dtype == 'object' or str(df_preview[col].dtype) == 'string':
+            if pd.api.types.is_string_dtype(df_preview[col]) or pd.api.types.is_object_dtype(df_preview[col]):
                 df_preview[col] = df_preview[col].astype(str)
                 
         st.markdown(f"**Loaded {len(df_preview)} customers**")
