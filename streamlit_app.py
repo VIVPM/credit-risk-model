@@ -290,18 +290,9 @@ with tab_batch:
     uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
     if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        
-        # PyArrow compatibility: Streamlit community cloud struggles with PyArrow string types
-        # This completely strips out the PyArrow backend by reconstructing the DataFrame
-        # and explicitly forcing generic Python types
-        clean_df = df.copy()
-        for col in clean_df.columns:
-            if clean_df[col].dtype == 'object' or str(clean_df[col].dtype) == 'string':
-                clean_df[col] = clean_df[col].astype(str)
-        
-        st.write("### Data Preview")
-        st.dataframe(clean_df.head(), use_container_width=True)
+        df_preview = pd.read_csv(uploaded_file)
+        st.markdown(f"**Loaded {len(df_preview)} customers**")
+        st.dataframe(df_preview.head(), use_container_width=True)
 
         if st.button("Predict Credit Risk", key="batch_predict", disabled=st.session_state["is_training"] or st.session_state["is_predicting"]):
             st.session_state["is_batching"] = True
@@ -309,6 +300,9 @@ with tab_batch:
                 st.warning("⚠️ **Training Required:** No models are available on Hugging Face Hub. Please go to the **Train Model** tab to train and register your first model.")
                 st.stop()
                 
+            uploaded_file.seek(0)
+            df = pd.read_csv(uploaded_file)
+            
             with st.spinner("Analyzing..."):
                 try:
                     if API_URL:
@@ -325,12 +319,10 @@ with tab_batch:
                          predictions = model.predict(df)
 
                     results_df = df.copy()
-                    
-                    # Convert to standard Python primitives so Streamlit's old Arrow encoder doesn't choke
-                    results_df["Default Prediction"] = [int(p['default_prediction']) for p in predictions]
-                    results_df["Default Probability"] = [float(p['default_probability']) for p in predictions]
-                    results_df["Credit Score"] = [str(p.get('credit_score', 'N/A')) for p in predictions]
-                    results_df["Rating"] = [str(p.get('rating', 'N/A')) for p in predictions]
+                    results_df["Default Prediction"] = [p['default_prediction'] for p in predictions]
+                    results_df["Default Probability"] = [p['default_probability'] for p in predictions]
+                    results_df["Credit Score"] = [p.get('credit_score', 'N/A') for p in predictions]
+                    results_df["Rating"] = [p.get('rating', 'N/A') for p in predictions]
                     results_df["Risk Status"] = results_df["Default Prediction"].map({0: "Low Risk", 1: "High Risk"})
 
                     st.write("### Prediction Results")
@@ -338,11 +330,6 @@ with tab_batch:
                     def highlight_risk(val):
                         color = 'red' if val == 'High Risk' else 'green'
                         return f'background-color: {color}; color: white'
-
-                    # PyArrow compatibility: Strip Arrow backends by explicitly converting types
-                    for col in results_df.columns:
-                        if results_df[col].dtype == 'object' or str(results_df[col].dtype) == 'string':
-                            results_df[col] = results_df[col].astype(str)
 
                     st.dataframe(
                         results_df.style.applymap(highlight_risk, subset=['Risk Status']),
