@@ -337,13 +337,12 @@ with tab_batch:
                         color = 'red' if val == 'High Risk' else 'green'
                         return f'background-color: {color}; color: white'
 
-                    # PyArrow compatibility: Streamlit community cloud struggles with PyArrow string types
                     for col in results_df.columns:
-                        if results_df[col].dtype == 'object' or str(results_df[col].dtype) == 'string':
-                            results_df[col] = results_df[col].astype(str)
+                        if results_df[col].dtype == 'object' or str(results_df[col].dtype).startswith('string'):
+                            results_df[col] = results_df[col].astype("str")
 
                     st.dataframe(
-                        results_df.style.applymap(highlight_risk, subset=['Risk Status']),
+                        results_df.style.map(highlight_risk, subset=['Risk Status']),
                         use_container_width=True
                     )
 
