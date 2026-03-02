@@ -499,11 +499,17 @@ with tab_train:
                 with refresh_ph.container():
                     st.write("⏳ Training running in background — click Refresh to check progress.")
                     if st.button("🔄 Refresh Status"):
-                        st.rerun()
+                        if hasattr(st, 'rerun'):
+                            st.rerun()
+                        else:
+                            st.experimental_rerun()
             elif status_val in ("completed", "failed", "loaded_from_hf"):
                  with refresh_ph.container():
                     if st.button("🔄 Refresh Status"):
-                        st.rerun()
+                        if hasattr(st, 'rerun'):
+                            st.rerun()
+                        else:
+                            st.experimental_rerun()
                         
         else:
             status_ph.info("💤 **Idle** - No models trained yet. Upload 3 datasets and hit Start Training.")
