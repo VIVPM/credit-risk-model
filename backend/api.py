@@ -77,14 +77,17 @@ def _upload_to_hf(accuracy_score=0.0) -> bool:
         else:
             new_version = "v1.0"
 
-        # Upload files
-        api.upload_folder(
-            folder_path=str(MODELS_DIR),
-            repo_id=HF_REPO_ID,
-            commit_message=f"Automated Training - {new_version}",
-            token=HF_TOKEN,
-            allow_patterns=["*.joblib", "*.txt", "*.json", "*.csv"]
-        )
+        # Upload files specifically listed in config.py
+        for file_name in HF_FILES:
+            file_path = MODELS_DIR / file_name
+            if file_path.exists():
+                api.upload_file(
+                    path_or_fileobj=str(file_path),
+                    path_in_repo=file_name,
+                    repo_id=HF_REPO_ID,
+                    commit_message=f"Automated Training - {new_version}",
+                    token=HF_TOKEN
+                )
         print(f"☁️  Uploaded artifacts -> {HF_REPO_ID}")
 
         # Tag the release
