@@ -136,28 +136,7 @@ credit-risk-model/
 
 The API uploads a versioned tag after each training run and downloads the latest on startup.
 
-### Modal (optional GPU / cloud training)
 
-The pipeline currently uses Logistic Regression (CPU only), but the Modal setup is ready if you switch to a GPU model later:
-
-```bash
-pip install modal
-
-# Authenticate
-python -m modal setup
-
-# Create secret for the container to access HF Hub
-python -m modal secret create credit-risk-secrets \
-    HF_TOKEN=hf_your_token \
-    HF_REPO_ID=YourUsername/credit-risk-model
-```
-
-Add Modal tokens to `backend/.env` (from `~/.modal.toml` after setup):
-
-```
-MODAL_TOKEN_ID=ak-...
-MODAL_TOKEN_SECRET=as-...
-```
 
 ## 🚀 Usage
 
