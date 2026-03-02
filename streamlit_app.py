@@ -291,6 +291,12 @@ with tab_batch:
 
     if uploaded_file:
         df_preview = pd.read_csv(uploaded_file)
+        
+        # PyArrow compatibility: convert object/string columns to regular strings for Streamlit rendering
+        for col in df_preview.columns:
+            if df_preview[col].dtype == 'object' or str(df_preview[col].dtype) == 'string':
+                df_preview[col] = df_preview[col].astype(str)
+                
         st.markdown(f"**Loaded {len(df_preview)} customers**")
         st.dataframe(df_preview.head(), use_container_width=True)
 
@@ -330,6 +336,11 @@ with tab_batch:
                     def highlight_risk(val):
                         color = 'red' if val == 'High Risk' else 'green'
                         return f'background-color: {color}; color: white'
+
+                    # PyArrow compatibility: Streamlit community cloud struggles with PyArrow string types
+                    for col in results_df.columns:
+                        if results_df[col].dtype == 'object' or str(results_df[col].dtype) == 'string':
+                            results_df[col] = results_df[col].astype(str)
 
                     st.dataframe(
                         results_df.style.applymap(highlight_risk, subset=['Risk Status']),
