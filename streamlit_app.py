@@ -291,6 +291,10 @@ with tab_batch:
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
+        
+        # PyArrow compatibility: convert object/string columns to regular strings
+        df = df.astype({col: str for col in df.select_dtypes(include=['object', 'string']).columns})
+        
         st.write("### Data Preview")
         st.dataframe(df.head(), use_container_width=True)
 
@@ -327,6 +331,9 @@ with tab_batch:
                     def highlight_risk(val):
                         color = 'red' if val == 'High Risk' else 'green'
                         return f'background-color: {color}; color: white'
+
+                    # Same pyarrow conversion for the final results dataframe
+                    results_df = results_df.astype({col: str for col in results_df.select_dtypes(include=['object', 'string']).columns})
 
                     st.dataframe(
                         results_df.style.applymap(highlight_risk, subset=['Risk Status']),
