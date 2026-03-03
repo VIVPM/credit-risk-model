@@ -29,7 +29,6 @@ class CreditRiskModel:
         self.features = None
         self.scaler = None
         self.cols_to_scale = None
-        self.encoder = None
         
         self.load()
 
@@ -42,7 +41,6 @@ class CreditRiskModel:
                  self.features = data['features']
                  self.scaler = data['scaler']
                  self.cols_to_scale = data['cols_to_scale']
-                 self.encoder = data['encoder']
             else:
                 raise FileNotFoundError(f"Model artifact not found at {self.model_path}")
 
@@ -97,17 +95,10 @@ class CreditRiskModel:
              df_numeric = pd.DataFrame(index=df.index)
              
         # B. Encode Categorical
-        # Identify categorical columns (features not in cols_to_scale)
-        # Note: We assume all other columns in cleaned df are categorical
         cat_cols = [c for c in df.columns if c not in self.cols_to_scale]
         
-        if self.encoder is not None and cat_cols:
-            # Drop unexpected columns just in case, only keep the ones encoder knows about
-            # Actually, encoder expects exact columns it was trained on.
-            # We must pass the df with exactly those columns in the right order.
-            # Wait, our preprocessor saves feature_names etc. Let's just use encoder.feature_names_in_ if available.
-            encoded_array = self.encoder.transform(df[self.encoder.feature_names_in_])
-            df_encoded = pd.DataFrame(encoded_array, columns=self.encoder.get_feature_names_out(), index=df.index)
+        if cat_cols:
+            df_encoded = pd.get_dummies(df[cat_cols], drop_first=True)
         else:
             df_encoded = pd.DataFrame(index=df.index)
             

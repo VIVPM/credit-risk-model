@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from sklearn.preprocessing import MinMaxScaler
 import os
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -19,9 +19,6 @@ from sklearn.impute import SimpleImputer
 class CreditRiskPreprocessor:
     def __init__(self):
         self.scaler  = MinMaxScaler()
-        # drop='first' avoids the dummy variable trap, matching the notebook.
-        # sparse_output=False so we can rebuild a proper DataFrame from the output.
-        self.encoder = OneHotEncoder(drop=None, sparse_output=False, handle_unknown='ignore')
         self.numeric_cols     = []
         self.categorical_cols = []
         self.feature_names    = []
@@ -55,8 +52,6 @@ class CreditRiskPreprocessor:
 
         if self.numeric_cols:
             self.scaler.fit(X[self.numeric_cols])
-        if self.categorical_cols:
-            self.encoder.fit(X[self.categorical_cols])
 
         return self
 
@@ -70,12 +65,17 @@ class CreditRiskPreprocessor:
         else:
             df_numeric = pd.DataFrame(index=X.index)
 
+        # Use get_dummies instead of OneHotEncoder for categoricals
         if self.categorical_cols:
-            X_encoded  = self.encoder.transform(X[self.categorical_cols])
-            enc_cols   = self.encoder.get_feature_names_out(self.categorical_cols)
-            df_encoded = pd.DataFrame(X_encoded, columns=enc_cols, index=X.index)
+             df_encoded = pd.get_dummies(X[self.categorical_cols], drop_first=True)
+             
+             # Align with training features if transform is called on test data
+             if hasattr(self, 'feature_names') and self.feature_names:
+                 # Only keep dummy columns that we saw during training
+                 dummy_cols = [c for c in self.feature_names if c not in self.numeric_cols]
+                 df_encoded = df_encoded.reindex(columns=dummy_cols, fill_value=0)
         else:
-            df_encoded = pd.DataFrame(index=X.index)
+             df_encoded = pd.DataFrame(index=X.index)
 
         X_final = pd.concat([df_numeric, df_encoded], axis=1)
         self.feature_names = X_final.columns.tolist()
