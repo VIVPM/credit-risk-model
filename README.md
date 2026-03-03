@@ -64,7 +64,7 @@ The training process is fully automated via the API endpoint `POST /train` which
     *   Calculates `loan_to_income`, `delinquency_ratio`.
     *   Aligns feature set with notebook definition.
 3.  **`backend/training/preprocessing.py`**:
-    *   One-Hot Encoding (`drop='first'`) for Categorical variables.
+    *   Categorical Encoding via `pd.get_dummies(drop_first=True)`.
     *   MinMax Scaling for Numerical variables.
 4.  **`backend/training/train.py`**:
     *   Splits data (Stratified).
@@ -153,7 +153,7 @@ The API uploads a versioned tag after each training run and downloads the latest
 
 This project ensures strict parity between the research environment (`credit_risk.ipynb`) and the automated pipeline:
 *   **Feature Engineering**: Identical logic for derived ratios.
-*   **Preprocessing**: Same `OneHotEncoder` configuration (`drop='first'`) and scaling.
+*   **Preprocessing**: Same `pd.get_dummies` configuration (`drop_first=True`) and scaling.
 *   **Model Parameters**: Exact hyperparameters (`C`, `tol`) transferred from Optuna tuning.
 *   **Artifacts**: The pipeline generates a `model_data.joblib` dictionary that mirrors the notebook's saving structure, ensuring seamless portability.
 
